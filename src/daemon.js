@@ -201,30 +201,42 @@ async function handleStop(request, response) {
   sendJson(response, result.status === 'not-found' ? 404 : 200, payload);
 }
 
-function handleList(response) {
-  const sessions = Array.from(state.values()).map((record) => ({
-    previewId: record.id,
-    providerId: record.providerId,
-    artifactId: record.artifact?.id,
-    artifactPath: record.artifact?.path,
-    artifactType: record.artifact?.type,
-    status: record.status,
-    canStop: record.canStop,
-    canStopRequested: record.canStopRequested,
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
-    result: {
-      url: record.result?.url,
-      kind: record.result?.kind,
-      message: record.result?.message,
-    },
-  }));
+function isSessionClosed(session) {
+  return session.status === 'stopped' || session.status === 'error' || session.status === 'closed';
+}
+
+function handleList(response, includeClosed = false) {
+  const sessions = Array.from(state.values())
+    .filter((record) => (includeClosed ? true : !isSessionClosed(record)))
+    .map((record) => ({
+      previewId: record.id,
+      providerId: record.providerId,
+      artifactId: record.artifact?.id,
+      artifactPath: record.artifact?.path,
+      artifactType: record.artifact?.type,
+      status: record.status,
+      canStop: record.canStop,
+      canStopRequested: record.canStopRequested,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      result: {
+        url: record.result?.url,
+        kind: record.result?.kind,
+        message: record.result?.message,
+      },
+    }));
   sendJson(response, 200, { sessions, count: sessions.length });
+}
+
+function handleListRoute(response, url) {
+  const includeClosed = url.searchParams.get('all') === '1' || url.searchParams.get('all') === 'true';
+  return handleList(response, includeClosed);
 }
 
 async function requestHandler(request, response) {
   const config = await loadConfig();
-  const route = request.url ? new URL(request.url, 'http://127.0.0.1').pathname : '';
+  const parsedUrl = request.url ? new URL(request.url, 'http://127.0.0.1') : null;
+  const route = parsedUrl ? parsedUrl.pathname : '';
 
   if (route === '/health' && request.method === 'GET') {
     sendJson(response, 200, {
@@ -262,7 +274,7 @@ async function requestHandler(request, response) {
   }
 
   if (route === '/sessions' && request.method === 'GET') {
-    handleList(response);
+    handleListRoute(response, parsedUrl);
     return;
   }
 

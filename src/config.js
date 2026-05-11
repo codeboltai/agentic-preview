@@ -4,7 +4,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 const APP_NAME = 'agentic-preview';
-const CONFIG_DIR = join(homedir(), `.${APP_NAME}`);
+const HOME = process.env.AGENTIC_PREVIEW_HOME || homedir();
+const CONFIG_DIR = join(HOME, `.${APP_NAME}`);
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 
 const DEFAULT_CONFIG = {

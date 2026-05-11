@@ -1,10 +1,10 @@
 {
-  "name": "agentic-preview",
+  "name": "@codebolt/agentic-preview",
   "version": "0.1.0",
   "description": "Local-first CLI tool to create shareable preview URLs for artifact inputs.",
   "type": "module",
   "bin": {
-    "agentic-preview": "./src/index.js"
+    "agentic-preview": "src/index.js"
   },
   "main": "src/index.js",
   "scripts": {

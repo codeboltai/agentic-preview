@@ -77,9 +77,12 @@ program.command('stop <previewId>')
 
 program.command('list')
   .description('List active preview sessions')
-  .action(async () => {
+  .option('--all', 'Include closed sessions')
+  .action(async (options) => {
     try {
-      const response = await daemonRequest('GET', '/sessions');
+      const commandOptions = options || {};
+      const endpoint = commandOptions.all ? '/sessions?all=true' : '/sessions';
+      const response = await daemonRequest('GET', endpoint);
       if (program.opts().json) {
         formatOutput(response, true);
         return;
@@ -197,8 +200,12 @@ program.command('providers')
       try {
         const config = await loadConfig();
         const providers = await getAvailableProviders(config);
-        if (!providers.has(providerId)) {
+        const provider = providers.get(providerId);
+        if (!provider) {
           throw new Error(`Provider ${providerId} is not available or disabled.`);
+        }
+        if (!provider.artifactTypes.includes(artifactType)) {
+          throw new Error(`Provider ${providerId} does not support artifact type ${artifactType}.`);
         }
         const updatedConfig = await setDefaultProvider(artifactType, providerId);
         formatOutput({

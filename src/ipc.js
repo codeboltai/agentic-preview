@@ -8,22 +8,26 @@ const PACKAGE_DIR = dirname(fileURLToPath(import.meta.url));
 const HEALTH_PATH = '/health';
 const DAEMON_ENTRY = join(PACKAGE_DIR, 'daemon.js');
 
-function withTimeout(ms, promise) {
-  return Promise.race([
-    promise,
-    wait(ms).then(() => {
-      throw new Error('Request timed out');
-    }),
-  ]);
-}
-
 async function requestJson(port, method, endpoint, body) {
   const url = new URL(`http://127.0.0.1:${port}${endpoint}`);
-  const response = await withTimeout(30000, fetch(url, {
-    method,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  }));
+  const controller = new AbortController();
+  const timeoutMs = 30000;
+  const timeout = setTimeout(() => {
+    controller.abort(new Error('Request timed out'));
+  }, timeoutMs);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      signal: controller.signal,
+      headers: body ? { 'content-type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
   if (!response) {
     return null;
   }

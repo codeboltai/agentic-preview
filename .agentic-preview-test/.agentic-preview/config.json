@@ -1,0 +1,7 @@
+{
+  "version":1,
+  "daemonPort":38111,
+  "enabledProviders": ["builtin-static","builtin-file","builtin-url"],
+  "defaults": {"static_site":"builtin-static","dynamic_site":"builtin-static","image":"builtin-file","video":"builtin-file","file":"builtin-file","url":"builtin-url"},
+  "customProviders": []
+}
