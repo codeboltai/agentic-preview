@@ -12,12 +12,12 @@ Use this skill when you need to create, debug, or test artifact preview provider
 
 ## Project path
 
-- `D:\CodeBoltapps\agentic-preview`
+- `<repo-root>\\agentic-preview`
 
 ## Prerequisites
 
 - Node.js 18+.
-- Project dependencies installed (`npm install` in `D:\CodeBoltapps\agentic-preview`).
+- Project dependencies installed (`npm install` in your `<repo-root>`).
 
 ## Quick verification sequence
 
@@ -38,6 +38,7 @@ node src/index.js providers add-command \
   --name "My Provider" \
   --command "node ./my-provider.js" \
   --artifact-types "static_site,dynamic_site" \
+  --required-credentials "MY_PROVIDER_TOKEN" \
   --managed \
   --supports-stop \
   --stop-command "node ./my-provider.js"
@@ -46,6 +47,7 @@ node src/index.js providers add-command \
 Key expectations:
 
 - `--command` executes on every `preview` request.
+- `--required-credentials` comma-separated credential keys; values are requested during `providers enable`.
 - Payload is sent as JSON on stdin.
 - Script must emit a JSON object on stdout.
 - `--stop-command` receives stop payload when `agentic-preview stop <previewId>` is called.
@@ -59,11 +61,11 @@ Key expectations:
 node src/index.js providers add-command \
   --id sample-command-provider \
   --name "Sample Command Provider" \
-  --command "node D:\\Codeboltapps\\agentic-preview\\samples\\command-provider\\provider.js" \
+  --command "node <repo-root>\\samples\\command-provider\\provider.js" \
   --artifact-types "static_site,dynamic_site,image,video,file,url" \
   --managed \
   --supports-stop \
-  --stop-command "node D:\\Codeboltapps\\agentic-preview\\samples\\command-provider\\provider.js"
+  --stop-command "node <repo-root>\\samples\\command-provider\\provider.js"
 ```
 
 - Use it:

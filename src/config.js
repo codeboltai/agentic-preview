@@ -12,6 +12,7 @@ const DEFAULT_CONFIG = {
   version: 1,
   daemonPort: 37111,
   enabledProviders: ['builtin-static', 'builtin-file', 'builtin-url'],
+  providerCredentials: {},
   defaults: {
     static_site: 'builtin-static',
     dynamic_site: 'builtin-static',
@@ -49,6 +50,7 @@ export async function loadConfig() {
   const config = {
     ...DEFAULT_CONFIG,
     ...(parsed || {}),
+    providerCredentials: normalizeProviderCredentials((parsed || {}).providerCredentials),
     defaults: { ...DEFAULT_CONFIG.defaults, ...(parsed || {}).defaults },
     enabledProviders: Array.isArray((parsed || {}).enabledProviders)
       ? [...new Set((parsed || {}).enabledProviders)]
@@ -61,12 +63,46 @@ export async function loadConfig() {
   return config;
 }
 
+function normalizeProviderCredentials(rawCredentials) {
+  const source = rawCredentials || {};
+  const normalized = {};
+  for (const [providerId, creds] of Object.entries(source)) {
+    if (!providerId || typeof providerId !== 'string' || !creds || typeof creds !== 'object') {
+      continue;
+    }
+    normalized[providerId] = {};
+    for (const [key, value] of Object.entries(creds)) {
+      if (typeof key !== 'string') continue;
+      normalized[providerId][key] = typeof value === 'string' ? value : JSON.stringify(value);
+    }
+  }
+  return normalized;
+}
+
+export async function getProviderCredentials(providerId) {
+  const config = await loadConfig();
+  return { ...(config.providerCredentials?.[providerId] || {}) };
+}
+
+export async function setProviderCredentials(providerId, credentials) {
+  const config = await loadConfig();
+  const next = normalizeProviderCredentials(config.providerCredentials);
+  if (!providerId) {
+    throw new Error('providerId is required');
+  }
+  next[providerId] = normalizeProviderCredentials({ [providerId]: credentials })[providerId] || {};
+  config.providerCredentials = next;
+  await writeConfig(config);
+  return config;
+}
+
 export async function writeConfig(config) {
   await ensureConfigDir();
   const safeConfig = {
     version: config.version || DEFAULT_CONFIG.version,
     daemonPort: config.daemonPort || DEFAULT_CONFIG.daemonPort,
     enabledProviders: Array.from(new Set(config.enabledProviders || [])),
+    providerCredentials: normalizeProviderCredentials(config.providerCredentials),
     defaults: config.defaults || DEFAULT_CONFIG.defaults,
     customProviders: (config.customProviders || []).map((provider) => ({ ...provider })),
   };
@@ -109,6 +145,7 @@ export async function addCustomProvider(providerConfig) {
     artifactTypes: Array.isArray(providerConfig.artifactTypes) ? providerConfig.artifactTypes : ['file'],
     managed: Boolean(providerConfig.managed),
     supportsStop: Boolean(providerConfig.supportsStop),
+    requiredCredentials: Array.isArray(providerConfig.requiredCredentials) ? providerConfig.requiredCredentials : [],
     description: providerConfig.description || '',
     enabled: providerConfig.enabled !== false,
     options: providerConfig.options || {},

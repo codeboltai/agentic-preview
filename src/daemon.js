@@ -239,11 +239,12 @@ async function requestHandler(request, response) {
   const route = parsedUrl ? parsedUrl.pathname : '';
 
   if (route === '/health' && request.method === 'GET') {
+    const activeSessionCount = Array.from(state.values()).filter((record) => !isSessionClosed(record)).length;
     sendJson(response, 200, {
       status: 'ok',
       version: '0.1.0',
       uptimeMs: process.uptime() * 1000,
-      sessionCount: state.size,
+      sessionCount: activeSessionCount,
     });
     return;
   }
@@ -258,6 +259,10 @@ async function requestHandler(request, response) {
       supportsStop: Boolean(provider.supportsStop),
       kind: provider.kind,
       description: provider.description,
+      requiredCredentials: provider.requiredCredentials || [],
+      credentialsConfigured: provider.requiredCredentials?.length
+        ? provider.requiredCredentials.every((entry) => Boolean(provider.credentials?.[entry.key]))
+        : true,
     }));
     sendJson(response, 200, { providers: list });
     return;

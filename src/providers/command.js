@@ -80,7 +80,11 @@ export function createCommandProvider(def) {
         previewId: context.previewId,
         providerId: def.providerId,
         artifact: context.artifact,
-        options: def.options || {},
+        options: {
+          ...(def.options || {}),
+          credentials: def.credentials || {},
+        },
+        credentials: def.credentials || {},
       };
       const result = await runCommand(def.command, def.args || [], payload, def.timeoutMs || 45000);
       return {

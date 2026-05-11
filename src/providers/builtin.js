@@ -98,6 +98,7 @@ export function getBuiltinProviders() {
       name: 'Local Static Preview',
       kind: 'local',
       managed: true,
+      requiredCredentials: [],
       supportsStop: true,
       artifactTypes: ['static_site', 'dynamic_site'],
       async start(context) {
@@ -134,6 +135,7 @@ export function getBuiltinProviders() {
       name: 'Local File Preview',
       kind: 'local',
       managed: false,
+      requiredCredentials: [],
       supportsStop: false,
       artifactTypes: ['file', 'image', 'video'],
       async start(context) {
@@ -158,6 +160,7 @@ export function getBuiltinProviders() {
       name: 'Direct URL Preview',
       kind: 'local',
       managed: false,
+      requiredCredentials: [],
       supportsStop: false,
       artifactTypes: ['url'],
       async start(context) {

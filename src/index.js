@@ -1,9 +1,17 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { createInterface } from 'node:readline';
 import { buildArtifactDescriptor } from './artifact.js';
 import { daemonRequest } from './ipc.js';
-import { loadConfig, setDefaultProvider, setProviderEnabled, addCustomProvider, removeCustomProvider } from './config.js';
-import { getAvailableProviders } from './providers/index.js';
+import {
+  loadConfig,
+  setDefaultProvider,
+  setProviderEnabled,
+  setProviderCredentials,
+  addCustomProvider,
+  removeCustomProvider,
+} from './config.js';
+import { getAllProviders, getAvailableProviders } from './providers/index.js';
 
 function formatOutput(value, jsonMode) {
   if (jsonMode) {
@@ -15,6 +23,47 @@ function formatOutput(value, jsonMode) {
   if (value.url) console.log(`url: ${value.url}`);
   if (value.providerId) console.log(`provider: ${value.providerId}`);
   if (value.canStop !== undefined) console.log(`canStop: ${value.canStop}`);
+}
+
+async function ensureProviderCredentials(provider) {
+  const requiredCredentials = Array.isArray(provider?.requiredCredentials)
+    ? provider.requiredCredentials
+    : [];
+  const existing = provider?.credentials || {};
+  const missing = requiredCredentials.filter((entry) => !(entry?.key && existing?.[entry.key]));
+  if (!missing.length) {
+    return existing;
+  }
+
+  if (!process.stdin.isTTY) {
+    const keys = missing.map((entry) => entry?.key || '').filter(Boolean).join(', ');
+    throw new Error(`Provider ${provider.providerId} requires credentials (${keys}) but command is running non-interactively.`);
+  }
+
+  const prompt = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  const next = { ...existing };
+
+  try {
+    for (const credential of missing) {
+      const key = credential.key;
+      const label = credential.label || key;
+      const value = await new Promise((resolve) => {
+        prompt.question(`Missing ${label} for ${provider.providerId} (${key}): `, resolve);
+      });
+      if (!value?.trim()) {
+        throw new Error(`Credential ${key} is required.`);
+      }
+      next[key] = value.trim();
+    }
+  } finally {
+    prompt.close();
+  }
+
+  await setProviderCredentials(provider.providerId, next);
+  return next;
 }
 
 const program = new Command();
@@ -113,7 +162,8 @@ program.command('providers')
       .action(async () => {
         try {
           const config = await loadConfig();
-          const providers = await getAvailableProviders(config);
+          const providers = await getAllProviders(config);
+          const enabledSet = new Set(config.enabledProviders || []);
           const payload = Array.from(providers.values()).map((provider) => ({
             providerId: provider.providerId,
             name: provider.name,
@@ -122,6 +172,8 @@ program.command('providers')
             artifactTypes: provider.artifactTypes,
             kind: provider.kind,
             description: provider.description,
+            requiredCredentials: provider.requiredCredentials || [],
+            enabled: enabledSet.has(provider.providerId),
           }));
           if (program.opts().json) {
             formatOutput({ providers: payload }, true);
@@ -130,6 +182,10 @@ program.command('providers')
               console.log(`${provider.providerId} - ${provider.name}`);
               console.log(`  types: ${provider.artifactTypes.join(', ')}`);
               console.log(`  managed: ${provider.managed}`);
+              console.log(`  enabled: ${provider.enabled}`);
+              if (provider.requiredCredentials.length) {
+                console.log(`  credentials: ${provider.requiredCredentials.map((item) => item.key).join(', ')}`);
+              }
             }
           }
         } catch (error) {
@@ -145,6 +201,7 @@ program.command('providers')
     .requiredOption('--name <name>', 'Provider display name')
     .requiredOption('--command <command>', 'Command to execute for preview request')
     .requiredOption('--artifact-types <types>', 'Comma-separated artifact types')
+    .option('--required-credentials <keys>', 'Comma-separated credential keys required by provider')
     .option('--managed', 'Mark as managed provider')
     .option('--supports-stop', 'Supports external stop command')
     .option('--stop-command <command>', 'Command to stop preview')
@@ -169,6 +226,17 @@ program.command('providers')
           supportsStop: options.supportsStop || false,
           stopCommand: options.stopCommand || null,
           description: options.description || '',
+          requiredCredentials: options.requiredCredentials
+            ? options.requiredCredentials
+              .split(',')
+              .map((value) => value.trim())
+              .filter(Boolean)
+              .map((key) => ({
+                key,
+                label: key,
+                envVar: key,
+              }))
+            : [],
           timeoutMs: options.timeoutMs ? Number(options.timeoutMs) : undefined,
         };
         const config = await addCustomProvider(provider);
@@ -223,8 +291,15 @@ program.command('providers')
     .argument('<providerId>', 'Provider id')
     .action(async (providerId) => {
       try {
-        const config = await setProviderEnabled(providerId, true);
-        formatOutput({ message: `Provider ${providerId} enabled`, enabledProviders: config.enabledProviders }, program.opts().json);
+        const config = await loadConfig();
+        const providers = await getAllProviders(config);
+        const provider = providers.get(providerId);
+        if (!provider) {
+          throw new Error(`Unknown provider ${providerId}.`);
+        }
+        await ensureProviderCredentials(provider);
+        const next = await setProviderEnabled(providerId, true);
+        formatOutput({ message: `Provider ${providerId} enabled`, enabledProviders: next.enabledProviders }, program.opts().json);
       } catch (error) {
         const payload = { error: error.message || String(error) };
         formatOutput(payload, program.opts().json);

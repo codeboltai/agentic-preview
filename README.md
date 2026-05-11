@@ -2,10 +2,17 @@
 
 `agentic-preview` is a local-first CLI that creates preview URLs for artifacts.
 
-## Installation (local development)
+## Installation
 
 ```bash
-cd D:\Codeboltapps\agentic-preview
+# From npm
+npm i @codebolt/agentic-preview
+# Start with
+npx agentic-preview --help
+```
+
+```bash
+# Local development
 npm install
 npm link
 ```
@@ -33,9 +40,9 @@ agentic-preview stop <previewId>
 
 # Provider management
 agentic-preview providers list
-agentic-preview providers add-command --id my-provider --name "My Provider" --command "node ./provider.js" --artifact-types "static_site,dynamic_site"
+agentic-preview providers add-command --id my-provider --name "My Provider" --command "node ./provider.js" --artifact-types "static_site,dynamic_site" --required-credentials "MY_PROVIDER_API_KEY"
 agentic-preview providers default static_site my-provider
-agentic-preview providers enable my-provider
+agentic-preview providers enable my-provider # prompts to capture required keys once missing
 agentic-preview providers disable my-provider
 agentic-preview providers remove my-provider
 ```
@@ -73,7 +80,7 @@ Configuration is stored at:
 Example:
 
 ```bash
-setx AGENTIC_PREVIEW_HOME "D:\agentic-preview-home"
+setx AGENTIC_PREVIEW_HOME "C:\Users\%USERNAME%\.agentic-preview-home"
 ```
 
 ### Create a custom command provider
@@ -88,6 +95,7 @@ agentic-preview providers add-command \
   --name "My Command Provider" \
   --command "node ./my-provider.js" \
   --artifact-types "static_site,dynamic_site" \
+  --required-credentials "MY_PROVIDER_TOKEN" \
   --managed \
   --supports-stop \
   --stop-command "node ./my-provider.js" \
@@ -100,11 +108,17 @@ Flags:
 - `--name` display name.
 - `--command` command to execute on preview start.
 - `--artifact-types` comma-separated supported artifact types.
+- `--required-credentials` comma-separated credential keys required by the provider.
 - `--managed` (optional) marks session as managed.
 - `--supports-stop` (optional) enables explicit `stop` flow.
 - `--stop-command` required if `--supports-stop` is set and you want explicit stop support.
 - `--timeout-ms` optional command timeout.
 - `--description` optional metadata.
+
+Notes:
+
+- `providers enable <providerId>` will prompt for any missing credential values before enabling.
+- captured credentials are stored at `<HOME>/.agentic-preview/config.json` in `providerCredentials`.
 
 #### 2) Provider command contract (important)
 
@@ -211,7 +225,7 @@ agentic-preview providers remove my-cmd-provider
 Register it with:
 
 ```bash
-node src/index.js providers add-command --id sample-command-provider --name "Sample Command Provider" --command "node D:\\Codeboltapps\\agentic-preview\\samples\\command-provider\\provider.js" --artifact-types "static_site,dynamic_site,image,video,file,url" --managed --supports-stop --stop-command "node D:\\Codeboltapps\\agentic-preview\\samples\\command-provider\\provider.js" --description "Local sample command provider"
+node src/index.js providers add-command --id sample-command-provider --name "Sample Command Provider" --command "node <repo-root>/samples/command-provider/provider.js" --artifact-types "static_site,dynamic_site,image,video,file,url" --managed --supports-stop --stop-command "node <repo-root>/samples/command-provider/provider.js" --description "Local sample command provider"
 ```
 
 Then preview and stop:
